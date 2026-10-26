@@ -15,9 +15,6 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # --- Database ---
-    # Dev default is a local SQLite file so the whole backend runs with zero
-    # external infra. Production MUST set DATABASE_URL to a Postgres+PostGIS
-    # instance, e.g. postgresql+psycopg2://user:pass@host:5432/uzhavan
     DATABASE_URL: str = "sqlite:///./uzhavan_dev.db"
 
     # --- Auth ---
@@ -65,15 +62,22 @@ class Settings(BaseSettings):
     PRICE_PLATFORM_FEE_PCT: float = 0.03
 
     # --- Post-harvest advisor ---
-    # See services/post_harvest_advisor.py for how each of these is used.
     POST_HARVEST_DEMAND_LOOKBACK_DAYS: int = 14
     POST_HARVEST_MAX_FACILITY_RADIUS_KM: float = 50.0
     POST_HARVEST_NO_HISTORY_SELL_FRACTION: float = 0.4
-    # Illustrative-only: what a forced, no-plan, same-day sale of oversupply
-    # typically clears relative to fair price, used solely to compute the
-    # "do nothing" baseline a recommendation is measured against — not used
-    # anywhere a farmer is actually paid.
     POST_HARVEST_DISTRESS_SALE_FRACTION: float = 0.15
+
+    # --- Meta Model API ---
+    META_AI_ENABLED: bool = False          # master switch; False = app behaves as before
+    MODEL_API_KEY: str = ""
+    META_API_BASE: str = "https://api.meta.ai/v1"
+    META_MODEL_FAST: str = "muse-spark-1.3"
+    META_MODEL_DEEP: str = "muse-wonder-1.0"
+    META_MODEL_SAM: str = "sam-3.1"
+    META_MODEL_IMAGE: str = "muse-image-1.0"
+    META_TIMEOUT_S: float = 12.0
+    META_DAILY_CALL_CAP: int = 2000        # hard stop so a bug cannot burn your credits
+    UPLOAD_DIR: str = "uploads"
 
 
 @lru_cache

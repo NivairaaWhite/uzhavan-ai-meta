@@ -1,19 +1,13 @@
 {
   "app_name": "உழவன்.AI",
-  "login": "உள்நுழைய",
-  "phone_number": "தொலைபேசி எண்",
-  "password": "கடவுச்சொல்",
-  "scan_crop": "பயிரை ஸ்கேன் செய்யவும்",
+  "scan_crop": "பயிரை ஸ்கேன் செய்க",
   "marketplace": "சந்தை",
-  "sync": "ஒத்திசை",
-  "logistics_pools": "போக்குவரத்து குழுக்கள்",
-  "capture_and_grade": "படம் எடுத்து தரம் நிர்ணயிக்க",
-  "grading": "தரம் நிர்ணயிக்கிறது...",
-  "crop_type": "பயிர் வகை",
-  "quantity_kg": "அளவு (கிலோ)",
-  "sync_now": "இப்போது ஒத்திசை",
-  "syncing": "ஒத்திசைக்கிறது...",
-  "no_listings_yet": "இந்த பயிருக்கு இன்னும் பட்டியல்கள் இல்லை",
-  "fair_price": "நியாயமான விலை",
-  "price_pending": "விலை நிலுவையில் உள்ளது"
+  "sync": "ஒத்திசைவு",
+  "logistics_pools": "போக்குவரத்து தொகுப்பு",
+  "post_harvest_advisor": "அறுவடைக்கு பிந்தைய ஆலோசகர்",
+  "verified_by_meta_ai": "Meta AI மூலம் சரிபார்க்கப்பட்டது",
+  "audit_disagree": "மீண்டும் ஸ்கேன் செய்க",
+  "audit_pending": "AI சரிபார்ப்பு நிலுவையில் உள்ளது",
+  "explain_tamil": "AI தமிழ் விளக்கம்",
+  "voice_mic_tooltip": "தமிழில் பேசவும்"
 }

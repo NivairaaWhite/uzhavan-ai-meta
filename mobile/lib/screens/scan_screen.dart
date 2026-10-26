@@ -53,12 +53,22 @@ class _ScanScreenState extends State<ScanScreen> {
       final picture = await _cameraController!.takePicture();
       final (grade, confidence) = await tflite.classify(File(picture.path));
 
+      // Confidence threshold — reject poor scans (blurry, dark)
+      if (confidence < 0.6) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Move closer, improve the light and scan again'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
       Position? position;
       try {
         position = await Geolocator.getCurrentPosition();
       } catch (_) {
-        // GPS unavailable indoors/underground — fall back to last known
-        // fix so a scan is never blocked entirely on location.
         position = await Geolocator.getLastKnownPosition();
       }
 

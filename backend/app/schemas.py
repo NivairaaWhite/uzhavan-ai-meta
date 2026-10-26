@@ -47,6 +47,7 @@ class CropListingCreate(BaseModel):
     grade_confidence: Optional[float] = Field(default=None, ge=0, le=1)
     quantity_kg: float = Field(gt=0)
     target_price_per_kg: Optional[float] = Field(default=None, ge=0)
+    district: Optional[str] = None
     latitude: float
     longitude: float
     scan_image_ref: Optional[str] = None
@@ -65,15 +66,22 @@ class CropListingOut(BaseModel):
     farmer_id: str
     crop_type: str
     grade: CropGrade
-    grade_confidence: Optional[float]
+    grade_confidence: Optional[float] = None
     quantity_kg: float
-    target_price_per_kg: Optional[float]
-    fair_price_per_kg: Optional[float]
+    target_price_per_kg: Optional[float] = None
+    fair_price_per_kg: Optional[float] = None
+    district: Optional[str] = None
     latitude: float
     longitude: float
     status: str
+    image_path: Optional[str] = None
+    audit_status: Optional[str] = "none"
+    audit_grade: Optional[str] = None
+    audit_confidence: Optional[float] = None
+    audit_defects: Optional[str] = None
+    audit_model: Optional[str] = None
     created_at: datetime
-    synced_at: Optional[datetime]
+    synced_at: Optional[datetime] = None
 
 
 # ---------- Market Prices ----------
@@ -84,7 +92,7 @@ class MarketPriceOut(BaseModel):
     market_name: str
     district: str
     wholesale_price_per_kg: float
-    retail_price_per_kg: Optional[float]
+    retail_price_per_kg: Optional[float] = None
     source: str
     recorded_date: datetime
 
@@ -93,7 +101,7 @@ class FairPriceResponse(BaseModel):
     crop_type: str
     district: str
     wholesale_price_per_kg: float
-    retail_price_per_kg: Optional[float]
+    retail_price_per_kg: Optional[float] = None
     fair_price_per_kg: float
     farmer_share_pct: float
 
@@ -115,7 +123,7 @@ class OrderOut(BaseModel):
     agreed_price_per_kg: float
     total_amount: float
     status: OrderStatus
-    razorpay_order_id: Optional[str]
+    razorpay_order_id: Optional[str] = None
     created_at: datetime
 
 
@@ -130,7 +138,7 @@ class LogisticsPoolOut(BaseModel):
     centroid_lng: float
     total_quantity_kg: float
     status: str
-    estimated_distance_km: Optional[float]
+    estimated_distance_km: Optional[float] = None
     created_at: datetime
 
 
@@ -158,7 +166,7 @@ class StorageFacilityOut(BaseModel):
     capacity_kg: float
     available_capacity_kg: float
     cost_per_kg_per_day: float
-    supported_crop_types: Optional[str]
+    supported_crop_types: Optional[str] = None
     is_active: bool
 
 
@@ -182,11 +190,11 @@ class ProcessingUnitOut(BaseModel):
     district: str
     latitude: float
     longitude: float
-    output_product: Optional[str]
+    output_product: Optional[str] = None
     daily_intake_capacity_kg: float
     remaining_intake_today_kg: float
     price_per_kg: float
-    accepted_crop_types: Optional[str]
+    accepted_crop_types: Optional[str] = None
     is_active: bool
 
 
@@ -234,11 +242,13 @@ class PostHarvestRecommendationOut(BaseModel):
     quantity_kg: float
     perishability_tier: PerishabilityTier
     allocations: List[AllocationOut]
-    wholesale_price_per_kg: Optional[float]
-    expected_net_value: Optional[float]
-    baseline_sell_all_today_value: Optional[float]
-    projected_savings: Optional[float]
+    wholesale_price_per_kg: Optional[float] = None
+    expected_net_value: Optional[float] = None
+    baseline_sell_all_today_value: Optional[float] = None
+    projected_savings: Optional[float] = None
     reasoning: List[str]
+    explanation: Optional[str] = None
+    explanation_lang: Optional[str] = None
     created_at: Optional[datetime] = None
 
 
@@ -252,6 +262,6 @@ class PostHarvestRecommendationHistoryOut(BaseModel):
     store_kg: float
     process_kg: float
     at_risk_kg: float
-    expected_net_value: Optional[float]
-    projected_savings: Optional[float]
+    expected_net_value: Optional[float] = None
+    projected_savings: Optional[float] = None
     created_at: datetime

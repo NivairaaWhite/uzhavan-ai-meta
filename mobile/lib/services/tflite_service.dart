@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
@@ -7,12 +8,6 @@ import 'package:image/image.dart' as img;
 /// assets/models/crop_grader.tflite (see ai_model/ for the training +
 /// export pipeline that produces this file). Runs entirely offline —
 /// this is the "works with zero network" half of the app.
-///
-/// NOTE: crop_grader.tflite is NOT included in this repo — a model file
-/// only becomes meaningful once trained on real, labeled crop-quality
-/// images (see ai_model/README.md). Ship a placeholder or gate scanning
-/// behind a "model not loaded" state until you've trained and dropped in
-/// a real .tflite file here.
 class TfliteService {
   static const String modelPath = 'assets/models/crop_grader.tflite';
   static const String labelsPath = 'assets/models/labels.txt';
@@ -26,10 +21,17 @@ class TfliteService {
   Future<void> loadModel() async {
     try {
       _interpreter = await Interpreter.fromAsset(modelPath);
-      // Bundled assets live in the app bundle, not the filesystem — must
-      // go through rootBundle, not dart:io File.
       final raw = await rootBundle.loadString(labelsPath);
       _labels = raw.split('\n').where((l) => l.trim().isNotEmpty).toList();
+
+      // Tensor shape check to ensure model output matches labels
+      final inT = _interpreter!.getInputTensor(0);
+      final outT = _interpreter!.getOutputTensor(0);
+      debugPrint('TFLite in ${inT.shape} ${inT.type}, out ${outT.shape} ${outT.type}');
+      if (outT.shape.last != _labels.length) {
+        debugPrint('TFLite tensor mismatch: expected ${_labels.length} classes, model output is ${outT.shape.last}');
+        _interpreter = null; // wrong model for these labels: keep scanning disabled
+      }
     } catch (e) {
       // Model not present yet — app still runs, scanning is just disabled
       // until ai_model/export_tflite.py output is added to assets/.
@@ -37,9 +39,7 @@ class TfliteService {
     }
   }
 
-  /// Returns (grade, confidence). Throws if the model isn't loaded — the
-  /// UI should check [isLoaded] first and show a clear "model not ready"
-  /// state instead of calling this blindly.
+  /// Returns (grade, confidence). Throws if the model isn't loaded.
   Future<(String, double)> classify(File imageFile) async {
     if (_interpreter == null) {
       throw StateError('TFLite model not loaded — see ai_model/README.md');

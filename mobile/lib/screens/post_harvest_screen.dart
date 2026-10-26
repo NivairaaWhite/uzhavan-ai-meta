@@ -4,9 +4,13 @@ import 'package:provider/provider.dart';
 import '../models/post_harvest_recommendation.dart';
 import '../services/api_service.dart';
 
-/// "What should I do with this crop today?" — calls
-/// POST /post-harvest/recommend (see backend/app/routers/post_harvest.py)
-/// and shows the resulting sell-now / store / process / at-risk split.
+const _supportedDistricts = [
+  'Coimbatore', 'Madurai', 'Salem', 'Erode', 'Tiruchirappalli',
+  'Thanjavur', 'Tirunelveli', 'Dindigul', 'Krishnagiri', 'Dharmapuri',
+];
+
+/// Post-harvest advisory screen with Tamil voice input, district selector,
+/// and AI explanation generation.
 class PostHarvestScreen extends StatefulWidget {
   const PostHarvestScreen({super.key});
   @override
@@ -16,10 +20,11 @@ class PostHarvestScreen extends StatefulWidget {
 class _PostHarvestScreenState extends State<PostHarvestScreen> {
   String _cropType = 'tomato';
   final _quantityCtrl = TextEditingController(text: '500');
-  final _districtCtrl = TextEditingController();
+  String _district = 'Coimbatore';
   bool _loading = false;
   String? _error;
   PostHarvestRecommendation? _result;
+  String? _explanation;
 
   Future<void> _getRecommendation() async {
     final quantity = double.tryParse(_quantityCtrl.text);
@@ -27,15 +32,12 @@ class _PostHarvestScreenState extends State<PostHarvestScreen> {
       setState(() => _error = 'Enter a valid quantity in kg');
       return;
     }
-    if (_districtCtrl.text.trim().isEmpty) {
-      setState(() => _error = 'Enter your district');
-      return;
-    }
 
     setState(() {
       _loading = true;
       _error = null;
       _result = null;
+      _explanation = null;
     });
 
     try {
@@ -49,12 +51,16 @@ class _PostHarvestScreenState extends State<PostHarvestScreen> {
       final json = await context.read<ApiService>().fetchPostHarvestRecommendation(
             cropType: _cropType,
             quantityKg: quantity,
-            district: _districtCtrl.text.trim(),
-            latitude: position?.latitude ?? 0,
-            longitude: position?.longitude ?? 0,
+            district: _district,
+            latitude: position?.latitude ?? 11.0,
+            longitude: position?.longitude ?? 77.0,
           );
       if (!mounted) return;
-      setState(() => _result = PostHarvestRecommendation.fromJson(json));
+      final rec = PostHarvestRecommendation.fromJson(json);
+      setState(() => _result = rec);
+
+      // Asynchronously fetch natural Tamil explanation
+      _fetchExplanation(rec.id);
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString());
@@ -63,10 +69,59 @@ class _PostHarvestScreenState extends State<PostHarvestScreen> {
     }
   }
 
+  Future<void> _fetchExplanation(String recId) async {
+    try {
+      final resp = await context.read<ApiService>().fetchExplanation(recId, lang: 'ta');
+      if (mounted && resp['explanation'] != null) {
+        setState(() => _explanation = resp['explanation'] as String);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _handleVoiceInput() async {
+    final transcript = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final ctrl = TextEditingController();
+        return AlertDialog(
+          title: const Text('Speak or Type in Tamil'),
+          content: TextField(
+            controller: ctrl,
+            decoration: const InputDecoration(
+              hintText: 'e.g. 500 கிலோ தக்காளி கோயம்புத்தூர்',
+            ),
+            maxLines: 2,
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text),
+              child: const Text('Extract'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (transcript != null && transcript.trim().isNotEmpty) {
+      try {
+        final intent = await context.read<ApiService>().parseVoiceIntent(transcript);
+        setState(() {
+          if (intent['crop_type'] != null) _cropType = intent['crop_type'];
+          if (intent['quantity_kg'] != null) _quantityCtrl.text = intent['quantity_kg'].toString();
+          if (intent['district'] != null && _supportedDistricts.contains(intent['district'])) {
+            _district = intent['district'];
+          }
+        });
+      } catch (e) {
+        setState(() => _error = 'Voice extraction: $e');
+      }
+    }
+  }
+
   @override
   void dispose() {
     _quantityCtrl.dispose();
-    _districtCtrl.dispose();
     super.dispose();
   }
 
@@ -77,18 +132,30 @@ class _PostHarvestScreenState extends State<PostHarvestScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          DropdownButtonFormField<String>(
-            initialValue: _cropType,
-            decoration: const InputDecoration(labelText: 'Crop type'),
-            items: const [
-              DropdownMenuItem(value: 'tomato', child: Text('Tomato')),
-              DropdownMenuItem(value: 'onion', child: Text('Onion')),
-              DropdownMenuItem(value: 'paddy', child: Text('Paddy')),
-              DropdownMenuItem(value: 'brinjal', child: Text('Brinjal')),
-              DropdownMenuItem(value: 'banana', child: Text('Banana')),
-              DropdownMenuItem(value: 'chilli', child: Text('Chilli')),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: _cropType,
+                  decoration: const InputDecoration(labelText: 'Crop type'),
+                  items: const [
+                    DropdownMenuItem(value: 'tomato', child: Text('Tomato (தக்காளி)')),
+                    DropdownMenuItem(value: 'onion', child: Text('Onion (வெங்காயம்)')),
+                    DropdownMenuItem(value: 'paddy', child: Text('Paddy (நெல்)')),
+                    DropdownMenuItem(value: 'brinjal', child: Text('Brinjal (கத்தரிக்காய்)')),
+                    DropdownMenuItem(value: 'banana', child: Text('Banana (வாழை)')),
+                    DropdownMenuItem(value: 'chilli', child: Text('Chilli (மிளகாய்)')),
+                  ],
+                  onChanged: (v) => setState(() => _cropType = v ?? _cropType),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                icon: const Icon(Icons.mic),
+                onPressed: _handleVoiceInput,
+                tooltip: 'Speak in Tamil',
+              ),
             ],
-            onChanged: (v) => setState(() => _cropType = v ?? _cropType),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -97,9 +164,13 @@ class _PostHarvestScreenState extends State<PostHarvestScreen> {
             decoration: const InputDecoration(labelText: 'Quantity harvested (kg)'),
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _districtCtrl,
-            decoration: const InputDecoration(labelText: 'District (e.g. Coimbatore)'),
+          DropdownButtonFormField<String>(
+            value: _district,
+            decoration: const InputDecoration(labelText: 'District'),
+            items: _supportedDistricts
+                .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                .toList(),
+            onChanged: (v) => setState(() => _district = v ?? _district),
           ),
           const SizedBox(height: 16),
           SizedBox(
@@ -107,15 +178,46 @@ class _PostHarvestScreenState extends State<PostHarvestScreen> {
             child: ElevatedButton.icon(
               onPressed: _loading ? null : _getRecommendation,
               icon: const Icon(Icons.query_stats),
-              label: Text(_loading ? 'Thinking...' : 'What should I do with this?'),
+              label: Text(_loading ? 'Consulting Advisor...' : 'What should I do with this?'),
             ),
           ),
           if (_error != null) ...[
             const SizedBox(height: 12),
             Text(_error!, style: const TextStyle(color: Colors.red)),
           ],
+          if (_explanation != null) ...[
+            const SizedBox(height: 16),
+            Card(
+              color: Colors.green.shade50,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                side: BorderSide(color: Colors.green.shade200),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.auto_awesome, color: Colors.green.shade800, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'AI Tamil Explanation',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade900),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(_explanation!, style: const TextStyle(fontSize: 15, height: 1.4)),
+                  ],
+                ),
+              ),
+            ),
+          ],
           if (_result != null) ...[
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             _RecommendationSummary(result: _result!),
           ],
         ],
@@ -133,7 +235,7 @@ class _RecommendationSummary extends StatelessWidget {
       case 'sell_now': return Colors.green;
       case 'store': return Colors.blue;
       case 'process': return Colors.orange;
-      default: return Colors.red; // at_risk
+      default: return Colors.red;
     }
   }
 
@@ -148,10 +250,10 @@ class _RecommendationSummary extends StatelessWidget {
 
   String _channelLabel(String channel) {
     switch (channel) {
-      case 'sell_now': return 'Sell today';
-      case 'store': return 'Cold-store';
-      case 'process': return 'Send to processing';
-      default: return 'At risk of spoilage';
+      case 'sell_now': return 'Sell Today';
+      case 'store': return 'Cold Storage';
+      case 'process': return 'Processing Unit';
+      default: return 'At Risk';
     }
   }
 
@@ -160,11 +262,14 @@ class _RecommendationSummary extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('${result.quantityKg.toStringAsFixed(0)} kg ${result.cropType}',
-            style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 12),
+        Text(
+          '${result.quantityKg.toStringAsFixed(0)} kg ${result.cropType.toUpperCase()}',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: 10),
         for (final a in result.allocations)
           Card(
+            margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
               leading: CircleAvatar(
                 backgroundColor: _channelColor(a.channel),
@@ -174,29 +279,35 @@ class _RecommendationSummary extends StatelessWidget {
               subtitle: Text(a.note),
               trailing: a.estimatedValue != null
                   ? Text('₹${a.estimatedValue!.toStringAsFixed(0)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold))
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))
                   : null,
             ),
           ),
         if (result.expectedNetValue != null) ...[
           const SizedBox(height: 8),
-          _ValueRow(label: 'Expected value with this plan', value: result.expectedNetValue!),
+          _ValueRow(label: 'Net value with this plan', value: result.expectedNetValue!),
           if (result.baselineSellAllTodayValue != null)
-            _ValueRow(label: 'If sold with no plan today', value: result.baselineSellAllTodayValue!),
+            _ValueRow(label: 'Baseline distress value', value: result.baselineSellAllTodayValue!),
           if (result.projectedSavings != null)
             _ValueRow(
-              label: 'Estimated gain from this plan',
+              label: 'Extra income gained',
               value: result.projectedSavings!,
               highlight: true,
             ),
         ],
         const SizedBox(height: 16),
         ExpansionTile(
-          title: const Text('Why this recommendation?'),
+          title: const Text('Why this plan? (Rules reasoning)'),
           children: result.reasoning
               .map((r) => Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    child: Text('• $r'),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('• '),
+                        Expanded(child: Text(r)),
+                      ],
+                    ),
                   ))
               .toList(),
         ),
@@ -223,6 +334,7 @@ class _ValueRow extends StatelessWidget {
             '₹${value.toStringAsFixed(0)}',
             style: TextStyle(
               fontWeight: FontWeight.bold,
+              fontSize: 15,
               color: highlight ? Colors.green[800] : null,
             ),
           ),

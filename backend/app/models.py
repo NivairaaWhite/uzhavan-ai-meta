@@ -2,14 +2,6 @@
 Core schema. Five domain tables as specified (users, crop_listings,
 market_prices, orders, logistics_pools) plus a pool-membership join table
 and a price-quality-audit table needed to make grading trustworthy.
-
-Design note on geography: latitude/longitude are stored as plain floats
-so the schema works identically on SQLite (dev/tests) and Postgres (prod)
-with zero extra extensions. At production scale, add a PostGIS
-`geography(Point)` generated column + GiST index over these same floats
-for ST_ClusterDBSCAN — see docs/ARCHITECTURE.md. The app-level clustering
-in services/matching.py works correctly without it up to tens of
-thousands of concurrent listings.
 """
 import enum
 import uuid
@@ -59,9 +51,6 @@ class KycStatus(str, enum.Enum):
 
 
 class PerishabilityTier(str, enum.Enum):
-    """How urgently a crop needs to move. Drives whether the post-harvest
-    advisor even considers storage a viable channel — see
-    services/post_harvest_advisor.py."""
     HIGHLY_PERISHABLE = "highly_perishable"   # tomato, brinjal, banana, leafy greens
     SEMI_PERISHABLE = "semi_perishable"       # onion, chilli
     DURABLE = "durable"                       # paddy, other grains/pulses
@@ -103,13 +92,22 @@ class CropListing(Base):
     quantity_kg = Column(Float, nullable=False)
     target_price_per_kg = Column(Float, nullable=True)   # farmer's ask, optional
     fair_price_per_kg = Column(Float, nullable=True)     # last computed platform fair price
+    district = Column(String(120), nullable=True, index=True) # Explicit district for pooling & prices
     latitude = Column(Float, nullable=False)
     longitude = Column(Float, nullable=False)
-    scan_image_ref = Column(String(255), nullable=True)  # object storage key, not raw blob in DB
+    scan_image_ref = Column(String(255), nullable=True)  # local or object storage key
     offline_scan_uuid = Column(String(64), nullable=True, index=True)  # dedupe key from device
     status = Column(String(20), default="available")  # available, pooled, sold, expired
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     synced_at = Column(DateTime, nullable=True)  # null until the offline scan reaches the server
+
+    # --- Meta AI audit (Phase 3) ---
+    image_path = Column(String(255), nullable=True)
+    audit_status = Column(String(16), default="none")   # none, pending, agree, disagree, skipped
+    audit_grade = Column(String(16), nullable=True)
+    audit_confidence = Column(Float, nullable=True)
+    audit_defects = Column(Text, nullable=True)         # JSON list
+    audit_model = Column(String(40), nullable=True)
 
     farmer = relationship("User", back_populates="crop_listings")
     pool_memberships = relationship("LogisticsPoolMember", back_populates="listing")
@@ -152,7 +150,6 @@ class Order(Base):
 
 
 class LogisticsPool(Base):
-    """A cluster of nearby crop_listings grouped to fill one truck route."""
     __tablename__ = "logistics_pools"
 
     id = Column(String(32), primary_key=True, default=gen_id)
@@ -181,24 +178,7 @@ class LogisticsPoolMember(Base):
     listing = relationship("CropListing", back_populates="pool_memberships")
 
 
-# ---------------------------------------------------------------------------
-# Post-harvest advisor
-#
-# Answers "what should I do with this crop today?" (sell / store / process /
-# accept the loss) — see services/post_harvest_advisor.py for the decision
-# logic. supported_crop_types / accepted_crop_types are plain comma-separated
-# Text rather than a join table: this mirrors TRACKED_CROPS in tasks.py
-# (crop taxonomy here is a short, slow-changing list, not a normalized
-# entity), and "*" means "accepts everything". Revisit as a proper
-# many-to-many table if per-crop rates/priority ever need to differ within
-# one facility.
-# ---------------------------------------------------------------------------
-
 class CropSpoilageProfile(Base):
-    """Admin-tunable per-crop shelf-life data. A crop with no row here falls
-    back to the DEFAULT_SPOILAGE_PROFILES dict in the advisor service —
-    this table exists so an agronomist can correct/refine those directional
-    defaults per crop without a code deploy."""
     __tablename__ = "crop_spoilage_profiles"
 
     crop_type = Column(String(80), primary_key=True)
@@ -210,11 +190,6 @@ class CropSpoilageProfile(Base):
 
 
 class StorageFacility(Base):
-    """Cold storage / warehouse a farmer's surplus can be routed to. Real
-    capacity numbers require onboarding real facilities — there is no public
-    feed for this, so `available_capacity_kg` starts as whatever the
-    facility (or an admin on its behalf) last reported and is decremented
-    by the advisor at recommendation time, not observed live."""
     __tablename__ = "storage_facilities"
 
     id = Column(String(32), primary_key=True, default=gen_id)
@@ -232,10 +207,6 @@ class StorageFacility(Base):
 
 
 class ProcessingUnit(Base):
-    """Unit that buys raw crop for processing (puree, drying, juicing, etc.)
-    — the release valve for surplus that can't be sold or stored in time.
-    `remaining_intake_today_kg` resets daily via
-    tasks.reset_daily_processing_intake (Celery beat, midnight IST)."""
     __tablename__ = "processing_units"
 
     id = Column(String(32), primary_key=True, default=gen_id)
@@ -254,9 +225,6 @@ class ProcessingUnit(Base):
 
 
 class PostHarvestRecommendation(Base):
-    """Audit log of every recommendation given out — both so a farmer can
-    review past advice and so a future learned model has labeled
-    (situation -> recommendation) data to train against."""
     __tablename__ = "post_harvest_recommendations"
 
     id = Column(String(32), primary_key=True, default=gen_id)
@@ -278,6 +246,8 @@ class PostHarvestRecommendation(Base):
     projected_savings = Column(Float, nullable=True)
     reasoning = Column(Text, nullable=True)              # newline-joined human-readable bullets
     allocation_detail_json = Column(Text, nullable=True)  # full per-channel/facility breakdown
+    explanation = Column(Text, nullable=True)            # Meta AI generated Tamil explanation
+    explanation_lang = Column(String(8), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     farmer = relationship("User")

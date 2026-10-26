@@ -14,6 +14,53 @@ class ResultsScreen extends StatelessWidget {
     }
   }
 
+  Widget _auditBadge() {
+    if (listing.auditStatus == null || listing.auditStatus == 'none') {
+      return const SizedBox.shrink();
+    }
+    Color color;
+    String label;
+    IconData icon;
+    switch (listing.auditStatus) {
+      case 'agree':
+        color = Colors.green;
+        label = 'Verified by Meta AI';
+        icon = Icons.verified;
+        break;
+      case 'disagree':
+        color = Colors.amber.shade900;
+        label = 'AI Audit Flagged — Please Re-scan';
+        icon = Icons.warning_amber_rounded;
+        break;
+      case 'pending':
+        color = Colors.blue;
+        label = 'AI Audit Pending';
+        icon = Icons.hourglass_top;
+        break;
+      default:
+        color = Colors.grey;
+        label = 'Audit: ${listing.auditStatus}';
+        icon = Icons.info_outline;
+    }
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color, width: 1.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final confidencePct = ((listing.gradeConfidence ?? 0) * 100).toStringAsFixed(0);
@@ -35,11 +82,14 @@ class ResultsScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Center(child: Text('Confidence: $confidencePct%', style: const TextStyle(fontSize: 16))),
+            Center(child: Text('On-device Confidence: $confidencePct%', style: const TextStyle(fontSize: 16))),
+            Center(child: _auditBadge()),
             const SizedBox(height: 24),
             _InfoRow(label: 'Crop', value: listing.cropType),
             _InfoRow(label: 'Quantity', value: '${listing.quantityKg} kg'),
-            _InfoRow(label: 'Status', value: 'Saved offline — will sync automatically'),
+            _InfoRow(label: 'Status', value: listing.synced ? 'Synced to Server' : 'Saved offline — ready to sync'),
+            if (listing.auditGrade != null && listing.auditGrade != listing.grade)
+              _InfoRow(label: 'Server Audit Verdict', value: listing.auditGrade!.replaceAll('grade_', 'Grade ').toUpperCase()),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),

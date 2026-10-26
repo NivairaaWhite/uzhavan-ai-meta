@@ -4,9 +4,8 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import '../services/api_service.dart';
 import '../services/local_db_service.dart';
 
-/// Explicit sync screen so a farmer can SEE what's queued and trigger a
-/// sync manually (important on 2G, where you don't want silent background
-/// syncs eating a scarce/expensive data budget without the user knowing).
+/// Explicit sync screen allowing farmers on 2G connections to control
+/// data consumption while syncing scan records and uploading produce photos.
 class SyncScreen extends StatefulWidget {
   const SyncScreen({super.key});
   @override
@@ -15,6 +14,7 @@ class SyncScreen extends StatefulWidget {
 
 class _SyncScreenState extends State<SyncScreen> {
   bool _syncing = false;
+  bool _uploadPhotos = true;
   String? _message;
 
   Future<void> _sync() async {
@@ -26,8 +26,24 @@ class _SyncScreenState extends State<SyncScreen> {
         return;
       }
       final api = context.read<ApiService>();
-      final count = await api.syncQueuedListings();
-      setState(() => _message = 'Synced $count listing(s) successfully.');
+      final syncedPairs = await api.syncQueuedListings();
+
+      String msg = 'Synced ${syncedPairs.length} listing(s) successfully.';
+
+      if (_uploadPhotos && syncedPairs.isNotEmpty) {
+        int uploadedCount = 0;
+        for (final pair in syncedPairs) {
+          try {
+            await api.uploadScanImage(pair['serverId']!, pair['scanImageRef']!);
+            uploadedCount++;
+          } catch (_) {
+            // Photo upload is best-effort and non-blocking
+          }
+        }
+        msg += ' Uploaded $uploadedCount photo(s) for AI grade audit.';
+      }
+
+      setState(() => _message = msg);
     } catch (e) {
       setState(() => _message = 'Sync failed: $e');
     } finally {
@@ -41,7 +57,7 @@ class _SyncScreenState extends State<SyncScreen> {
     final unsynced = localDb.getUnsyncedListings();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Sync')),
+      appBar: AppBar(title: const Text('Sync Data')),
       body: Column(
         children: [
           Padding(
@@ -49,7 +65,14 @@ class _SyncScreenState extends State<SyncScreen> {
             child: Column(
               children: [
                 Text('${unsynced.length} scan(s) waiting to sync', style: const TextStyle(fontSize: 16)),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  title: const Text('Upload photos for AI audit'),
+                  subtitle: const Text('Uses ~200 KB per photo on 2G/3G'),
+                  value: _uploadPhotos,
+                  onChanged: (v) => setState(() => _uploadPhotos = v),
+                ),
+                const SizedBox(height: 8),
                 ElevatedButton.icon(
                   onPressed: _syncing ? null : _sync,
                   icon: _syncing
@@ -59,7 +82,7 @@ class _SyncScreenState extends State<SyncScreen> {
                 ),
                 if (_message != null) ...[
                   const SizedBox(height: 12),
-                  Text(_message!),
+                  Text(_message!, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                 ],
               ],
             ),
@@ -72,8 +95,8 @@ class _SyncScreenState extends State<SyncScreen> {
                 final l = unsynced[i];
                 return ListTile(
                   leading: const Icon(Icons.cloud_off, color: Colors.orange),
-                  title: Text('${l.cropType} — ${l.quantityKg} kg'),
-                  subtitle: Text('Scanned ${l.createdAt}'),
+                  title: Text('${l.cropType} — ${l.quantityKg} kg (Grade ${l.grade.replaceAll('grade_', '').toUpperCase()})'),
+                  subtitle: Text('Scanned: ${l.createdAt.toLocal().toString().split('.')[0]}'),
                 );
               },
             ),

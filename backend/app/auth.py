@@ -60,3 +60,14 @@ def require_role(*allowed: UserRole):
             raise HTTPException(status_code=403, detail="Not authorized for this action")
         return user
     return dependency
+
+
+def user_from_token(token: str, db: Session) -> Optional[User]:
+    """WebSockets cannot use the header-based dependency, so this helper
+    extracts and validates user from query parameter token."""
+    try:
+        sub = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]).get("sub")
+    except JWTError:
+        return None
+    user = db.query(User).filter(User.id == sub).first() if sub else None
+    return user if user and user.is_active else None

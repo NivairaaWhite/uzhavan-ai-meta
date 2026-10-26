@@ -27,6 +27,7 @@ from app.schemas import (
     StorageFacilityOut,
 )
 from app.services.post_harvest_advisor import recommend_allocation
+from app.services.advisor_explainer import explain
 
 router = APIRouter(prefix="/post-harvest", tags=["post-harvest"])
 
@@ -37,11 +38,8 @@ def recommend(
     db: Session = Depends(get_db),
     user: User = Depends(require_role(UserRole.FARMER, UserRole.STUDENT_AGENT)),
 ):
-    """The core 'what should I do with this crop today?' endpoint. Every
-    call is logged to post_harvest_recommendations — both so the farmer can
-    review past advice (GET /history) and so real outcomes can eventually
-    train a learned model in place of the heuristic in
-    services/post_harvest_advisor.py."""
+    """Deterministic 'what should I do with this crop today?' endpoint.
+    Logged to post_harvest_recommendations."""
     try:
         result = recommend_allocation(
             db,
@@ -96,6 +94,54 @@ def recommend(
     )
 
 
+@router.get("/{rec_id}/explanation")
+def get_explanation(
+    rec_id: str,
+    lang: Optional[str] = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Fetches or generates a natural Tamil/English explanation via Muse Spark."""
+    rec = (
+        db.query(PostHarvestRecommendation)
+        .filter(
+            PostHarvestRecommendation.id == rec_id,
+            PostHarvestRecommendation.farmer_id == user.id,
+        )
+        .first()
+    )
+    if not rec:
+        raise HTTPException(404, "Recommendation not found")
+
+    target_lang = lang or user.preferred_language or "ta"
+
+    if rec.explanation and rec.explanation_lang == target_lang:
+        return {"explanation": rec.explanation, "lang": target_lang}
+
+    facts = {
+        "crop": rec.crop_type,
+        "quantity_kg": rec.quantity_kg,
+        "district": rec.district,
+        "sell_now_kg": rec.sell_now_kg,
+        "store_kg": rec.store_kg,
+        "process_kg": rec.process_kg,
+        "at_risk_kg": rec.at_risk_kg,
+        "expected_net_value_rupees": rec.expected_net_value,
+        "sell_everything_today_rupees": rec.baseline_sell_all_today_value,
+        "extra_rupees_earned": rec.projected_savings,
+        "channels": json.loads(rec.allocation_detail_json or "[]"),
+    }
+
+    text = explain(facts, target_lang)
+    if text is None:
+        return {"explanation": None, "lang": target_lang}
+
+    rec.explanation = text
+    rec.explanation_lang = target_lang
+    db.commit()
+    return {"explanation": text, "lang": target_lang}
+
+
 @router.get("/history", response_model=List[PostHarvestRecommendationHistoryOut])
 def history(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return (
@@ -106,8 +152,6 @@ def history(db: Session = Depends(get_db), user: User = Depends(get_current_user
         .all()
     )
 
-
-# ---------- Storage facilities ----------
 
 @router.get("/storage-facilities", response_model=List[StorageFacilityOut])
 def list_storage_facilities(
@@ -126,17 +170,12 @@ def create_storage_facility(
     db: Session = Depends(get_db),
     _: User = Depends(require_role(UserRole.ADMIN)),
 ):
-    """Onboarding a real facility is manual by design — see the module
-    docstring in services/post_harvest_advisor.py on why there's no public
-    capacity feed to pull this from automatically."""
     facility = StorageFacility(**payload.model_dump())
     db.add(facility)
     db.commit()
     db.refresh(facility)
     return facility
 
-
-# ---------- Processing units ----------
 
 @router.get("/processing-units", response_model=List[ProcessingUnitOut])
 def list_processing_units(
@@ -162,8 +201,6 @@ def create_processing_unit(
     return unit
 
 
-# ---------- Spoilage profiles ----------
-
 @router.get("/spoilage-profiles", response_model=List[CropSpoilageProfileOut])
 def list_spoilage_profiles(db: Session = Depends(get_db)):
     return db.query(CropSpoilageProfile).all()
@@ -175,9 +212,6 @@ def upsert_spoilage_profile(
     db: Session = Depends(get_db),
     _: User = Depends(require_role(UserRole.ADMIN)),
 ):
-    """Lets an agronomist correct the directional defaults in
-    DEFAULT_SPOILAGE_PROFILES per crop, without a code deploy — same
-    tunability principle as the fair-price weights in config.py."""
     crop_type = payload.crop_type.strip().lower()
     row = db.query(CropSpoilageProfile).filter(CropSpoilageProfile.crop_type == crop_type).first()
     fields = payload.model_dump(exclude={"crop_type"})

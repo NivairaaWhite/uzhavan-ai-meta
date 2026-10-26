@@ -3,16 +3,8 @@ import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:record/record.dart';
 
-/// Live Tamil voice input/output via Bhashini. Streams microphone audio
-/// over a WebSocket for low-latency ASR while the farmer talks, rather
-/// than recording-then-uploading (matches the blueprint's "WebSockets for
-/// streaming live Tamil audio" requirement).
-///
-/// The WS URL/inference key must come from your backend's
-/// GET /voice/pipeline-config endpoint (add this thin proxy route in
-/// backend/app/routers/ if you want to keep BHASHINI_API_KEY off the
-/// device — recommended, since anything shipped in the APK is
-/// extractable). This class assumes that proxy exists.
+/// Live Tamil voice input via Muse Voice Transcribe. Streams microphone audio
+/// over a WebSocket to the backend /voice/stream relay at 24000 Hz.
 class VoiceService {
   final AudioRecorder _recorder = AudioRecorder();
   WebSocketChannel? _channel;
@@ -20,22 +12,24 @@ class VoiceService {
 
   Stream<String> get transcriptStream => _transcriptController.stream;
 
-  Future<void> startListening(String wsUrl, String inferenceKey) async {
+  Future<void> startListening(String wsUrl) async {
     if (!await _recorder.hasPermission()) {
       throw Exception('Microphone permission denied');
     }
     _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
-    _channel!.sink.add(jsonEncode({'type': 'auth', 'key': inferenceKey}));
 
     _channel!.stream.listen((message) {
-      final data = jsonDecode(message as String);
-      if (data['type'] == 'partial_transcript' || data['type'] == 'final_transcript') {
-        _transcriptController.add(data['text'] as String);
-      }
+      try {
+        final data = jsonDecode(message as String);
+        if (data['type'] == 'final_transcript' || data['type'] == 'partial_transcript') {
+          _transcriptController.add(data['text'] as String);
+        }
+      } catch (_) {}
     });
 
+    // Muse Voice Transcribe expects mono 16-bit PCM at 24 kHz
     final stream = await _recorder.startStream(
-      const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 16000, numChannels: 1),
+      const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 24000, numChannels: 1),
     );
     stream.listen((chunk) => _channel?.sink.add(chunk));
   }

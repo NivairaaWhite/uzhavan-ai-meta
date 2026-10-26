@@ -32,6 +32,7 @@ class AllocationChannel {
 }
 
 class PostHarvestRecommendation {
+  final String id;
   final String cropType;
   final double quantityKg;
   final String perishabilityTier;
@@ -43,6 +44,7 @@ class PostHarvestRecommendation {
   final List<String> reasoning;
 
   PostHarvestRecommendation({
+    required this.id,
     required this.cropType,
     required this.quantityKg,
     required this.perishabilityTier,
@@ -55,6 +57,7 @@ class PostHarvestRecommendation {
   });
 
   factory PostHarvestRecommendation.fromJson(Map<String, dynamic> json) => PostHarvestRecommendation(
+        id: json['id'] as String? ?? '',
         cropType: json['crop_type'] as String,
         quantityKg: (json['quantity_kg'] as num).toDouble(),
         perishabilityTier: json['perishability_tier'] as String,

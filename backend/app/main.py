@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.database import init_db, wait_for_db
-from app.routers import users, crops, market, orders, logistics, post_harvest
+from app.routers import users, crops, market, orders, logistics, post_harvest, voice, agent
 
 settings = get_settings()
 
@@ -21,9 +21,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     description="Backend API for Uzhavan.AI — offline crop grading, fair-price "
-                 "marketplace, logistics pooling, and post-harvest advisory "
-                 "(sell/store/process) for Tamil Nadu farmers.",
-    version="0.1.0",
+                 "marketplace, logistics pooling, post-harvest advisory, and "
+                 "Meta AI multi-model integration for Tamil Nadu farmers.",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -41,8 +41,15 @@ app.include_router(market.router)
 app.include_router(orders.router)
 app.include_router(logistics.router)
 app.include_router(post_harvest.router)
+app.include_router(voice.router)
+app.include_router(agent.router)
 
 
 @app.get("/health", tags=["meta"])
 def health():
-    return {"status": "ok", "app": settings.APP_NAME, "env": settings.ENV}
+    return {
+        "status": "ok",
+        "app": settings.APP_NAME,
+        "env": settings.ENV,
+        "meta_ai_enabled": settings.META_AI_ENABLED,
+    }
