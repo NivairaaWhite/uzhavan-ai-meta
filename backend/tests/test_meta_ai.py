@@ -16,13 +16,12 @@ from app.services.advisor_explainer import explain, _numbers
 from app.services.grade_audit import GradeVerdict
 from app.services.meta_ai import MetaAIUnavailable
 from app.tasks import audit_listing_grade
+from app.auth import create_access_token
 
 settings = get_settings()
 
 
 def test_explainer_number_guardrail_blocks_invented_figures():
-    """Verify that if an LLM hallucination inserts numbers not in the facts,
-    explain() strictly returns None."""
     facts = {
         "crop": "tomato",
         "quantity_kg": 500,
@@ -36,39 +35,35 @@ def test_explainer_number_guardrail_blocks_invented_figures():
         "extra_rupees_earned": 4500,
     }
 
-    # Case 1: Model outputs faithful numbers
     faithful_text = "இன்று 200 கிலோ தக்காளி விற்கவும், 300 கிலோ சேமிக்கவும். நிகர மதிப்பு 12500 ரூபாய்."
     with patch("app.services.advisor_explainer.ask_text", return_value=faithful_text):
         res = explain(facts, "ta")
         assert res == faithful_text
 
-    # Case 2: Model hallucinates a number (e.g. 9999 or 555) not in facts
     hallucinated_text = "இன்று 200 கிலோ தக்காளி விற்கவும். விலை 555 ரூபாய்."
     with patch("app.services.advisor_explainer.ask_text", return_value=hallucinated_text):
         res = explain(facts, "ta")
-        assert res is None  # Caught by the _numbers guardrail!
+        assert res is None
 
 
 def test_meta_ai_disabled_fallback(client, db_session):
-    """When META_AI_ENABLED is False (the safe default), endpoints degrade gracefully."""
-    # Ensure disabled
     settings.META_AI_ENABLED = False
 
-    # 1. Voice intent returns 503
-    resp = client.post("/voice/intent", json={"transcript": "500 kg tomato"})
-    # Without auth it returns 401, with auth returns 503
-    assert resp.status_code in (401, 503)
-
-    # 2. Explainer endpoint returns None for explanation
     user = User(
-        full_name="Test Farmer",
-        phone_number="9876543210",
+        full_name="Test Farmer Meta",
+        phone_number="+919999900001",
         hashed_password="hash",
         role=UserRole.FARMER,
         district="Coimbatore",
     )
     db_session.add(user)
-    db_session.flush()
+    db_session.commit()
+
+    token = create_access_token(user.id)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    resp = client.post("/voice/intent", json={"transcript": "500 kg tomato"}, headers=headers)
+    assert resp.status_code == 503
 
     rec = PostHarvestRecommendation(
         farmer_id=user.id,
@@ -82,27 +77,24 @@ def test_meta_ai_disabled_fallback(client, db_session):
     db_session.add(rec)
     db_session.commit()
 
-    with patch("app.auth.get_current_user", return_value=user):
-        resp = client.get(f"/post-harvest/{rec.id}/explanation")
-        assert resp.status_code == 200
-        assert resp.json()["explanation"] is None
+    resp = client.get(f"/post-harvest/{rec.id}/explanation", headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["explanation"] is None
 
 
 def test_audit_grade_invariant_device_grade_never_overwritten(db_session, tmp_path):
-    """The server-side audit must NEVER overwrite the farmer's on-device grade.
-    It only writes to audit_grade and audit_status."""
     img_file = tmp_path / "test_crop.jpg"
     img_file.write_bytes(b"dummy_jpeg_bytes")
 
     user = User(
         full_name="Farmer Joe",
-        phone_number="9876543211",
+        phone_number="+919876543211",
         hashed_password="hash",
         role=UserRole.FARMER,
         district="Salem",
     )
     db_session.add(user)
-    db_session.flush()
+    db_session.commit()
 
     listing = CropListing(
         farmer_id=user.id,
@@ -117,7 +109,6 @@ def test_audit_grade_invariant_device_grade_never_overwritten(db_session, tmp_pa
     db_session.add(listing)
     db_session.commit()
 
-    # Mock audit returning grade_b (disagreement)
     verdict = GradeVerdict(
         grade="grade_b",
         confidence=0.85,
@@ -131,7 +122,6 @@ def test_audit_grade_invariant_device_grade_never_overwritten(db_session, tmp_pa
         assert status == "disagree"
 
     db_session.refresh(listing)
-    # Critical invariant: device grade is still grade_a!
     assert listing.grade == CropGrade.GRADE_A
     assert listing.audit_grade == "grade_b"
     assert listing.audit_status == "disagree"
@@ -140,7 +130,6 @@ def test_audit_grade_invariant_device_grade_never_overwritten(db_session, tmp_pa
 
 
 def test_voice_intent_schema_extraction():
-    """Verify HarvestIntent schema parsing and missing parameter tracking."""
     from app.routers.voice import HarvestIntent
 
     data = {
@@ -155,7 +144,6 @@ def test_voice_intent_schema_extraction():
     assert intent.district == "Coimbatore"
     assert len(intent.missing) == 0
 
-    # With missing fields
     partial = HarvestIntent(crop_type="onion", missing=["quantity_kg", "district"])
     assert partial.crop_type == "onion"
     assert partial.quantity_kg is None
