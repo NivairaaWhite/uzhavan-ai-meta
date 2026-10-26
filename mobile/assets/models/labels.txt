@@ -1,0 +1,6 @@
+grade_a
+grade_b
+grade_c
+defect_rotten
+defect_pest_damage
+foreign_matter

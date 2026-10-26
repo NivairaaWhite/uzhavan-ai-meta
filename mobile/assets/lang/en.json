@@ -1,0 +1,19 @@
+{
+  "app_name": "Uzhavan.AI",
+  "login": "Login",
+  "phone_number": "Phone number",
+  "password": "Password",
+  "scan_crop": "Scan Crop",
+  "marketplace": "Marketplace",
+  "sync": "Sync",
+  "logistics_pools": "Logistics Pools",
+  "capture_and_grade": "Capture & Grade",
+  "grading": "Grading...",
+  "crop_type": "Crop type",
+  "quantity_kg": "Quantity (kg)",
+  "sync_now": "Sync now",
+  "syncing": "Syncing...",
+  "no_listings_yet": "No listings yet for this crop",
+  "fair_price": "Fair price",
+  "price_pending": "Price pending"
+}

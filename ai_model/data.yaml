@@ -1,0 +1,20 @@
+# YOLO dataset config for crop-quality grading.
+# Directory layout expected (standard Ultralytics format):
+#   dataset/images/train/*.jpg   dataset/labels/train/*.txt
+#   dataset/images/val/*.jpg     dataset/labels/val/*.txt
+# Each .txt label line: class_id x_center y_center width height (normalized 0-1)
+#
+# Class list is a reasonable starting taxonomy for produce grading, not
+# handed down by the blueprint (it didn't specify one) — adjust to match
+# whatever your labeling team actually annotates in Roboflow/Label Studio.
+path: ./dataset
+train: images/train
+val: images/val
+
+names:
+  0: grade_a          # ripe, unblemished, correct size for crop type
+  1: grade_b          # minor blemish/size variance, still saleable
+  2: grade_c          # significant blemish, discount-tier
+  3: defect_rotten
+  4: defect_pest_damage
+  5: foreign_matter    # soil clumps, leaves, stones mixed into the sample

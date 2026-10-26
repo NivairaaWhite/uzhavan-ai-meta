@@ -1,0 +1,124 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: uzhavan
+      POSTGRES_USER: uzhavan
+      POSTGRES_PASSWORD: uzhavan_dev_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      # -h 127.0.0.1 forces a real TCP check. On first run, Postgres's own
+      # init process briefly runs a temporary, Unix-socket-only server
+      # while it bootstraps the data directory. A socket-based check (the
+      # default for pg_isready with no -h) can report "healthy" against
+      # that temporary instance moments before it shuts down again — which
+      # is exactly what let the API container start against a database
+      # that wasn't actually listening yet. Forcing TCP means the check
+      # only passes once the real server is accepting connections.
+      test: ["CMD-SHELL", "pg_isready -U uzhavan -d uzhavan -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://uzhavan:uzhavan_dev_password@db:5432/uzhavan
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    healthcheck:
+      # Lets `docker compose up --wait` (used by the start scripts) block
+      # until the API is actually answering requests, and turns a
+      # crashed/restarting container into a visible "unhealthy" status
+      # instead of it silently disappearing while a script polls a closed
+      # port and gives up.
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  celery_worker:
+    build: .
+    command: celery -A app.celery_app worker --loglevel=info
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://uzhavan:uzhavan_dev_password@db:5432/uzhavan
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # Without this, a service has no healthcheck at all, so
+      # `docker compose up --wait` can only confirm it's "running" — a
+      # container stuck restart-crash-looping (restart: unless-stopped)
+      # can flap through that state fast enough that --wait never catches
+      # a stable moment and just stalls until --wait-timeout, with no real
+      # error surfaced. `celery inspect ping` asks a live worker to
+      # actually answer over the broker, so failures show up immediately
+      # and for the real reason.
+      test: ["CMD-SHELL", "celery -A app.celery_app inspect ping --timeout 5"]
+      interval: 10s
+      timeout: 10s
+      retries: 6
+      start_period: 20s
+    restart: unless-stopped
+
+  celery_beat:
+    build: .
+    command: celery -A app.celery_app beat --loglevel=info
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://uzhavan:uzhavan_dev_password@db:5432/uzhavan
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # No healthcheck here: unlike a worker, beat is a scheduler with
+    # nothing that answers a "ping" — the shape of a reliable check would
+    # depend on its schedule-file backend, which varies by what dbm module
+    # the image resolves to and isn't worth pinning down. It's scoped out
+    # of the start scripts' --wait gate for that reason (see start.sh /
+    # start.bat / start.command); restart: unless-stopped keeps it
+    # recovering on its own, and `docker compose logs celery_beat` is the
+    # way to check on it directly.
+    restart: unless-stopped
+
+volumes:
+  pgdata:

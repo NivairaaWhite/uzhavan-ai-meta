@@ -1,0 +1,22 @@
+# Secrets and local env — never bake these into an image layer.
+.env
+.env.*
+!.env.example
+
+# Python cruft
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Local dev database
+*.db
+
+# VCS / editor
+.git/
+.gitignore
+.vscode/
+.idea/
