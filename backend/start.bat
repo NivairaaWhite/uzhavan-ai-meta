@@ -43,7 +43,7 @@ if errorlevel 1 (
         echo.
         echo Docker Desktop still isn't responding after 2 minutes.
         echo Open Docker Desktop manually and wait for the whale icon in the
-        echo system tray to stop animating ^(that means the engine is up^),
+        echo system tray to stop animating [that means the engine is up],
         echo then run this script again.
         pause
         exit /b 1
@@ -68,7 +68,7 @@ if errorlevel 1 (
 
 if not exist "%BACKEND_DIR%.env" (
     echo First run: creating backend\.env from .env.example.
-    echo ^(Edit it later to add real Bhashini/Razorpay/DigiLocker API keys.^)
+    echo [Edit it later to add real Bhashini/Razorpay/DigiLocker API keys.]
     copy "%BACKEND_DIR%.env.example" "%BACKEND_DIR%.env" >nul
 )
 
@@ -87,8 +87,8 @@ if errorlevel 1 (
 
 echo.
 echo Waiting for Postgres, Redis, the API, and the Celery worker to report
-echo healthy ^(celery_beat has no meaningful health check of its own — see
-echo the comment in docker-compose.yml — so it isn't part of this wait^).
+echo healthy [celery_beat has no meaningful health check of its own — see
+echo the comment in docker-compose.yml — so it isn't part of this wait].
 echo.
 %COMPOSE% up -d --wait --wait-timeout 180 db redis api celery_worker
 if errorlevel 1 (
@@ -97,16 +97,16 @@ if errorlevel 1 (
     echo The stack did NOT become healthy in time. Here's why:
     echo ==========================================================
     echo.
-    echo --- api logs (last 50 lines) ---
+    echo --- api logs [last 50 lines] ---
     %COMPOSE% logs --tail=50 api
     echo.
-    echo --- celery_worker logs (last 50 lines) ---
+    echo --- celery_worker logs [last 50 lines] ---
     %COMPOSE% logs --tail=50 celery_worker
     echo.
-    echo --- celery_beat logs (last 30 lines) ---
+    echo --- celery_beat logs [last 30 lines] ---
     %COMPOSE% logs --tail=30 celery_beat
     echo.
-    echo --- db logs (last 30 lines) ---
+    echo --- db logs [last 30 lines] ---
     %COMPOSE% logs --tail=30 db
     echo.
     echo ==========================================================
