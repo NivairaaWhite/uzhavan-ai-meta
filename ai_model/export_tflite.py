@@ -1,5 +1,5 @@
 """
-Exports a trained classifier checkpoint to quantized INT8 TFLite for
+Exports a trained classifier checkpoint to quantized TFLite for
 on-device inference (target: sub-200ms on a low-end phone CPU).
 
 Usage:
@@ -23,16 +23,26 @@ def main():
     args = parser.parse_args()
 
     model = YOLO(args.weights)
-    exported_path = model.export(
-        format="tflite",
-        int8=True,
-        imgsz=args.imgsz,
-        data=args.data,
+    print(f"Exporting model from {args.weights} to ONNX...")
+    onnx_path = model.export(format="onnx", imgsz=args.imgsz)
+
+    print("Converting ONNX to TFLite...")
+    import onnx2tf
+    onnx_file = Path(onnx_path)
+    tf_out = onnx_file.parent / "saved_model"
+    onnx2tf.convert(
+        input_onnx_file_path=str(onnx_file),
+        output_folder_path=str(tf_out),
+        not_use_onnxsim=True,
     )
+    candidates = list(tf_out.glob("*float32.tflite")) or list(tf_out.glob("*.tflite"))
+    if not candidates:
+        raise FileNotFoundError(f"No .tflite file generated in {tf_out}")
+    tflite_candidate = candidates[0]
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy(exported_path, out_path)
+    shutil.copy(tflite_candidate, out_path)
 
     size_mb = out_path.stat().st_size / (1024 * 1024)
     print(f"Exported quantized TFLite model to {out_path} ({size_mb:.2f} MB)")
