@@ -19,13 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-Additional note: this software integrates with third-party financial
-(Razorpay), identity (DigiLocker), and government data (Bhashini,
-Agmarknet/OGD India) services. Use of those integrations is governed by
-each provider's own terms of service, and compliance with applicable
-financial services, data protection, and KYC regulations when deploying
-this software is the deploying party's responsibility, not a guarantee
-made by this codebase.

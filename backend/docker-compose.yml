@@ -6,6 +6,7 @@ services:
     environment:
       POSTGRES_DB: uzhavan
       POSTGRES_USER: uzhavan
+      # DEV-ONLY: default dev password, do not use in production
       POSTGRES_PASSWORD: uzhavan_dev_password
     volumes:
       - pgdata:/var/lib/postgresql/data

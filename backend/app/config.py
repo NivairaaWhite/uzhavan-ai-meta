@@ -3,6 +3,7 @@ Central configuration. All secrets/URLs come from environment variables
 (.env in dev, real secret manager in prod) — nothing is hard-coded.
 """
 from functools import lru_cache
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -78,6 +79,15 @@ class Settings(BaseSettings):
     META_TIMEOUT_S: float = 12.0
     META_DAILY_CALL_CAP: int = 2000        # hard stop so a bug cannot burn your credits
     UPLOAD_DIR: str = "uploads"
+
+    @model_validator(mode="after")
+    def check_jwt_secret_security(self) -> "Settings":
+        if self.ENV not in ("development", "test") and self.JWT_SECRET_KEY == "CHANGE_ME_IN_PRODUCTION":
+            raise ValueError(
+                "Security violation: JWT_SECRET_KEY is set to 'CHANGE_ME_IN_PRODUCTION' in production. "
+                "You must configure a cryptographically secure random 64-character secret before starting the server."
+            )
+        return self
 
 
 @lru_cache

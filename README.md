@@ -2,13 +2,13 @@
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg?logo=python&logoColor=white)](https://python.org)
-[![Pytest](https://img.shields.io/badge/Tests-29%2F29%20Passing-brightgreen.svg?logo=pytest&logoColor=white)](https://docs.pytest.org)
+[![Pytest](https://img.shields.io/badge/Tests-29%20Passing-brightgreen.svg?logo=pytest&logoColor=white)](https://docs.pytest.org)
 [![Meta AI](https://img.shields.io/badge/Meta%20AI-5%20Models%20Integrated-0668E1.svg?logo=meta&logoColor=white)](https://dev.meta.ai)
 [![Flutter](https://img.shields.io/badge/Flutter-Offline%20First-02569B.svg?logo=flutter&logoColor=white)](https://flutter.dev)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 **உழவன் (Uzhavan)** — Tamil for *"Farmer"*.  
-**Uzhavan.AI** is an AI-augmented, offline-first agritech platform designed for smallholder farmers in Tamil Nadu, India. It bridges on-device edge computer vision (running offline on low-end Android smartphones) with state-of-the-art Meta AI cloud models to provide transparent crop grading, instant post-harvest decision advisory, algorithmic fair pricing, cooperative logistics pooling, and multi-model quality verification.
+**Uzhavan.AI** is an AI-augmented, offline-first agritech platform designed for smallholder farmers in Tamil Nadu, India. It pairs on-device edge computer vision (running offline on low-end Android smartphones) with state-of-the-art Meta AI cloud models to provide tamper-evident crop grading, instant post-harvest decision advisory, algorithmic fair pricing, cooperative logistics pooling, and multi-model quality verification.
 
 ---
 
@@ -16,15 +16,16 @@
 
 - [**NEW_WORK.md**](./NEW_WORK.md) — Comprehensive technical log of every file, service, and test created during integration.
 - [**MODELS_USED.md**](./MODELS_USED.md) — Detailed mapping of all 5 Meta models, input/output schemas, and failure fallbacks.
-- [**3-Minute Presentation Video**](#3-minute-workflow-video-storyboard) — Full storyboard, visual cues, and voiceover script matching the 1080p demo video.
+- [**NOTICE.md**](./NOTICE.md) — Third-party integrations notice (Meta AI, Bhashini, Razorpay, DigiLocker, Agmarknet).
+- [**3-Minute Presentation Video Storyboard**](#3-minute-workflow-video-storyboard) — Full storyboard, visual cues, and voiceover script matching the 1080p demo video.
 
 ---
 
 ## The Agricultural Challenge
 
 Smallholder farmers across rural Tamil Nadu face severe systemic hurdles:
-1. **Middlemen Exploitation**: Intermediaries capture 40–50% of retail consumer price spreads due to asymmetric price information.
-2. **Post-Harvest Spoilage**: 30% to 40% of perishable produce (tomatoes, chillies, brinjal, onions) is lost due to delayed sales and lack of storage intelligence.
+1. **Middlemen Exploitation**: Intermediaries capture significant margins of consumer price spreads due to asymmetric market information.
+2. **Post-Harvest Spoilage**: Tomato growers face post-harvest losses of about 10–13% for tomato (NABCONS 2022) due to delayed sales and lack of storage intelligence.
 3. **Zero Connectivity in Fields**: Rural farmlands lack cellular connectivity; traditional cloud-only AI solutions fail completely at the farmgate.
 4. **Buyer Distrust & Subjective Downgrades**: Buyers frequently dispute crop quality upon delivery, forcing farmers into distressing post-transit discounts.
 
@@ -58,7 +59,7 @@ Mic (Tamil Audio) ─────────────┼──────�
 Advisor Screen ────────────────┼──────► POST /post-harvest/recommend (Deterministic Math)
                                │          │                                      
                                │          ▼                                      
-                               │        GET /post-harvest/{id}/explanation ────► Muse Spark 1.3 (Tamil Regex Guardrail)
+                               │        GET /post-harvest/{id}/explanation ────► Muse Spark 1.3 (Tamil Guardrail)
                                │                                                 
 Conversational Agent ──────────┼──────► POST /agent/chat ──────────────────────► Muse Spark 1.3 (Tool-Calling Agent)
                                                                                   ├── lookup_fair_price()
@@ -99,60 +100,135 @@ Conversational Agent ──────────┼──────► POST
 ## Architectural Invariants & Safety Guardrails
 
 ### 1. Device Grade Immutability
-The on-device classification performed by the farmer's smartphone is cryptographically signed with a local UUID and stored locally before any network connection is made.  
+The on-device classification performed by the farmer's smartphone is cryptographically signed with a local UUID and stored in SQLite before any network connection is made.  
 **Critical Guarantee:** The device grade is **never overwritten** by cloud audits. Cloud vision evaluations are recorded in an independent audit column to provide transparent buyer assurance without diminishing the farmer's farmgate assessment.
 
-### 2. Strict Numeric Integrity Guardrails (Zero Hallucinations)
-Agricultural pricing models cannot tolerate LLM hallucinations. All prices, storage distributions, and revenue calculations are calculated **deterministically in Python**.  
-When generating Tamil narrative explanations, `app/services/advisor_explainer.py` extracts all digits using a regex scanner (`_numbers(text)`). If the generated text contains **any number not present in the verified input facts**, the output is discarded immediately (`return None`), guaranteeing that farmers never receive invented market rates.
+### 2. Strict Numeric Integrity Guardrail (No Invented Numbers)
+Agricultural pricing models cannot tolerate LLM hallucinations. All prices, storage distributions, and revenue calculations are computed **deterministically in Python**.  
+When generating Tamil narrative explanations, `app/services/advisor_explainer.py` extracts all digits using a regex scanner (`_numbers(text)`). If the generated text contains **any number not present in the verified input facts**, the output is discarded immediately (`return None`), ensuring that farmers never receive invented market rates.
 
 ### 3. Distributed Daily Budget Ceiling
 To safeguard against runaway loops or credit depletion, `app/services/meta_ai.py` increments an atomic Redis counter on every call. If requests exceed `META_DAILY_CALL_CAP` (default: 2,000 calls/day), the gateway raises `MetaAIUnavailable`, falling back safely to offline functionality.
 
 ---
 
+## Quickstart
+
+Ensure Docker Desktop is running before launching the multi-container stack.
+
+### 1. One-Command Setup (Recommended)
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/NivairaaWhite/uzhavan-ai-meta.git
+cd uzhavan-ai-meta
+
+# 2. Configure environment variables (add MODEL_API_KEY from dev.meta.ai)
+cp backend/.env.example backend/.env
+
+# 3. Launch with one command
+# On Linux:
+./start.sh
+
+# On Windows:
+start.bat
+
+# On macOS:
+./start.command
+```
+
+The launcher starts PostgreSQL (with PostGIS), Redis, FastAPI backend, Celery worker, and Celery beat scheduler. Once booted:
+- **Swagger UI**: `http://localhost:8000/docs`
+- **Health Check**: `http://localhost:8000/health`
+
+*Note: Meta AI models switch on automatically once `MODEL_API_KEY` is added to `backend/.env`.*
+
+### 2. Manual Backend Run (Without Docker)
+
+```bash
+cd backend
+python -m venv venv
+
+# On Windows:
+.\venv\Scripts\activate
+# On Linux/macOS:
+source venv/bin/activate
+
+pip install -r requirements.txt
+cp .env.example .env
+
+# Run the test suite
+pytest tests/ -v
+
+# Start the development server
+uvicorn app.main:app --reload --port 8000
+```
+
+### 3. Running the Test Suite
+The backend includes a 29-test test suite covering auth, offline sync, DBSCAN logistics clustering, post-harvest optimization, and all Meta AI integrations:
+```bash
+pytest tests/ -v
+```
+**Result**: `29 passed across auth, logistics, pricing, Meta AI and post-harvest`
+
+---
+
 ## 3-Minute Workflow Video Storyboard
 
-A synchronized 1080p Full HD video (`uzhavan_ai_meta_workflow_3min.mp4`) has been compiled for hackathon evaluations and presentations. Each scene runs for exactly 30 seconds:
+A synchronized 1080p Full HD video script matched to the 3-minute video presentation. Each scene runs for exactly 30 seconds:
 
 ```
-[0:00 - 0:30] Scene 1: Introduction & The Rural Challenge
-- Visual: Asymmetric middlemen markups, 30-40% perishability loss, field connectivity gap.
-- Script: "Smallholder farmers in Tamil Nadu face severe market exploitation, with up to 40% of
-  perishable produce lost post-harvest. Without direct market access or transparent quality grading,
-  farmers are forced into distressed sales. Uzhavan.AI combines offline edge AI with Meta Cloud AI."
+Scene 1 · 0:00–0:30 · Problem and solution
+On screen: Problem and solution cards with sourced data.
+Voiceover:
+"In Tamil Nadu, farmers can lose part of a harvest before it reaches a buyer, and many sell
+without knowing a fair price. Fields often have no signal, so cloud-only apps fail exactly
+where they are needed. Uzhavan A.I. pairs offline AI on the phone with Meta's cloud models.
+The farmer gets a trusted grade, a fair price, and a better way to get produce to market."
 
-[0:30 - 1:00] Scene 2: Edge AI & Offline Crop Grading
-- Visual: Phone camera viewfinder scanning tomatoes, Softmax confidence bar (Grade A 89%).
-- Script: "In rural farmlands, internet connectivity is virtually zero. Our mobile application runs
-  a lightweight on-device edge AI model that instantly grades crops like tomatoes, onions, and paddy
-  from the camera with zero connectivity. The device establishes an immutable local scan record with
-  cryptographic verification."
+Scene 2 · 0:30–1:00 · Offline grading on the phone
+On screen: Real app in airplane mode grading a photographed tomato sample, showing softmax output.
+Voiceover:
+"Out in the field, the app works with no internet. The farmer photographs the crop, and a
+lightweight model on the phone grades it as A, B or C, showing how confident it is. The
+result is signed and saved on the device straight away. Once recorded, that grade is never
+lowered by a buyer or overwritten in the cloud, so the farmer's own assessment cannot be quietly changed."
 
-[1:00 - 1:30] Scene 3: Cloud Sync & Meta Audit
-- Visual: Background sync, Spark 1.3 audit, Wonder 1.0 arbitration, SAM 3.1 defect pixel masks.
-- Script: "When the farmer reaches a network zone, the app syncs to our FastAPI backend. Here, Meta AI
-  takes over to provide buyer trust. Muse Spark 1.3 performs a vision audit on the uploaded photo.
-  If Spark disagrees with the phone's offline grade, the heavier Muse Wonder 1.0 is invoked as arbiter.
-  We also use SAM 3.1 for defect segmentation."
+Scene 3 · 1:00–1:30 · Cloud sync and Meta audit
+On screen: Backend log showing sync, Muse Spark audit, Muse Wonder escalation, and real SAM 3.1 mask.
+Voiceover:
+"When the phone gets a signal, the photo and grade sync to our FastAPI backend, and Meta's
+models audit the result. Muse Spark 1.3 checks the photo first. If it disagrees with the
+phone, Muse Wonder 1.0 steps in as the arbiter. SAM 3.1 outlines the defects, so buyers can
+see exactly what was found. Every verdict is stored next to the farmer's grade, and nothing is erased."
 
-[1:30 - 2:00] Scene 4: Tamil Voice Intent
-- Visual: Audio wave animation, Tamil spoken transcript, structured Pydantic JSON schema extraction.
-- Script: "To make the app highly accessible, we replaced complex manual forms with voice. Using Muse
-  Voice Transcribe, the farmer simply speaks in Tamil. They can say 'I have 50 kilos of tomatoes to sell.'
-  The backend streams this audio, and Muse Spark 1.3 extracts crop, quantity, and district in structured JSON."
+Scene 4 · 1:30–2:00 · Tamil voice
+On screen: Real Tamil clip recorded in app, followed by structured JSON.
+Voiceover:
+"Typing forms is a barrier in the field, so we replaced them with voice. The farmer simply
+speaks in Tamil.
+[Audio clip: எனக்கு கோயம்புத்தூரில் 500 கிலோ தக்காளி விற்க வேண்டும்.]
+That means: I need to sell five hundred kilos of tomatoes in Coimbatore. The backend
+transcribes the speech, and Muse Spark turns it into structured data: crop, quantity, district
+and action. Anything the farmer did not say is left empty and flagged as missing, never guessed."
 
-[2:00 - 2:30] Scene 5: Autonomous Farm Agent
-- Visual: Sell vs Store allocation split, DBSCAN 8km logistics pooling, regex guardrail defense.
-- Script: "We also built an autonomous post-harvest advisor. Powered by Muse Spark 1.3’s function-calling,
-  this agent dynamically pulls real-time fair market prices, calculates storage vs. sell ratios, and groups
-  farmers for logistics pooling. Crucially, strict regex number guardrails prevent any hallucinated prices."
+Scene 5 · 2:00–2:30 · Post-harvest advisor
+On screen: Advisor screen with real numbers, and the log line where an invented number is discarded.
+Voiceover:
+"The same backend runs a post-harvest advisor. For a batch of tomatoes, it recommends how
+much to sell today, how much to hold in storage, and how much, if any, to process, using
+current market prices. The backend calculates every rupee amount. The AI only puts those facts
+into Tamil, and any number it invents is discarded. Nearby farmers can also be pooled into
+shared truckloads to cut freight costs."
 
-[2:30 - 3:00] Scene 6: Architecture & Conclusion
-- Visual: FastAPI + PostgreSQL + Celery + Redis Daily Cap, 29/29 Pytest Passed 100% badge.
-- Script: "All of this is supported by a robust backend using Postgres, Celery for asynchronous AI tasks,
-  and Redis to enforce strict Meta API daily budget caps. The codebase is fully tested with Pytest and
-  100% ready for deployment. Uzhavan.AI bridges edge computing and advanced cloud AI. Thank you."
+Scene 6 · 2:30–3:00 · Stack, tests and close
+On screen: pytest ending in '29 passed', GitHub repo page, and closing card.
+Voiceover:
+"Under the hood: FastAPI, PostgreSQL with PostGIS for location queries, Celery for the heavy
+AI jobs, and Redis, which caps daily Meta API usage. Twenty-nine tests pass across auth,
+logistics, pricing, the Meta AI integration and the advisor. The code is on GitHub at
+NivairaaWhite slash uzhavan-ai-meta. Uzhavan A.I.: edge computing and cloud AI working
+together for Indian agriculture. Thank you."
 ```
 
 ---
@@ -164,8 +240,14 @@ uzhavan-ai/
 ├── README.md                   # Primary system documentation & overview
 ├── NEW_WORK.md                 # Complete hackathon build log & implementation notes
 ├── MODELS_USED.md              # Detailed Meta AI model specification matrix
-├── LICENSE                     # MIT License
-├── .gitignore                  # Production Git ignore rules
+├── NOTICE.md                   # Third-party integrations notice
+├── LICENSE                     # Plain MIT License
+├── start.sh                    # Linux one-click launcher (chmod +x)
+├── start.bat                   # Windows one-click launcher
+├── start.command               # macOS one-click launcher (chmod +x)
+├── stop.sh                     # Linux stack teardown (chmod +x)
+├── stop.bat                    # Windows stack teardown
+├── stop.command                # macOS stack teardown (chmod +x)
 │
 ├── backend/                    # FastAPI, Celery, Postgres, Redis backend
 │   ├── app/
@@ -179,64 +261,22 @@ uzhavan-ai/
 │   ├── alembic/                # Database migrations
 │   ├── docker-compose.yml      # Multi-container local production stack
 │   ├── requirements.txt        # Backend dependencies pinned for reproducibility
-│   └── tests/                  # Pytest test suite (29 tests, 100% passing)
+│   └── tests/                  # Pytest test suite (29 tests passing)
 │
 ├── mobile/                     # Flutter cross-platform mobile client
 │   ├── assets/models/          # TFLite INT8 quantized models & label maps
 │   ├── assets/lang/            # Tamil (ta.json) & English (en.json) localizations
 │   └── lib/                    # Screens (scan, post-harvest, sync, chat) & services
 │
-└── ai_model/                   # Computer vision model training & TFLite export
-    ├── train_yolo.py           # Fine-tuning YOLOv8 classification model
-    ├── export_tflite.py        # Quantization & INT8 edge export pipeline
-    └── synthetic_augment.py    # Muse Image 1.0 synthetic defect generation
+├── ai_model/                   # Computer vision model training & TFLite export
+│   ├── train_yolo.py           # Fine-tuning YOLOv8 classification model
+│   ├── export_tflite.py        # Quantization & INT8 edge export pipeline
+│   └── synthetic_augment.py    # Muse Image 1.0 synthetic defect generation
+│
+└── tools/                      # Video automation & presentation tools
+    ├── presentation.html       # 6-scene 1080p animated HTML presentation with video placeholders
+    └── render_video.py         # Playwright + FFmpeg automated 30fps video capture & audio muxer
 ```
-
----
-
-## Quickstart Guide
-
-### 1. Prerequisites
-- Python 3.10+ (Python 3.12 recommended)
-- Git
-- Docker & Docker Compose (optional for local full-stack run)
-
-### 2. Backend Setup
-```bash
-# Clone the repository
-git clone https://github.com/NivairaaWhite/uzhavan-ai-meta.git
-cd uzhavan-ai-meta/backend
-
-# Create and activate virtual environment
-python -m venv venv
-# On Windows:
-.\venv\Scripts\activate
-# On Linux/macOS:
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Configure environment variables
-cp .env.example .env
-# Edit .env to add your MODEL_API_KEY from dev.meta.ai
-```
-
-### 3. Running the Test Suite
-The backend includes a comprehensive 29-test test suite covering auth, offline sync, DBSCAN logistics clustering, post-harvest optimization, and all Meta AI integrations:
-```bash
-pytest tests/ -v
-```
-**Result**: `29 passed, 1 warning in 10.84s (100% Pass Rate)`
-
-### 4. Starting the Server
-```bash
-uvicorn app.main:app --reload --port 8000
-```
-Interactive OpenAPI documentation will be accessible at:
-- **Swagger UI**: `http://127.0.0.1:8000/docs`
-- **ReDoc**: `http://127.0.0.1:8000/redoc`
-- **Health Check**: `http://127.0.0.1:8000/health`
 
 ---
 
@@ -260,4 +300,4 @@ Interactive OpenAPI documentation will be accessible at:
 
 ## License
 
-This project is licensed under the **MIT License** — see the [LICENSE](./LICENSE) file for details.
+This project is licensed under the **MIT License** — see the [LICENSE](./LICENSE) file for details. Third-party API terms are described in [NOTICE.md](./NOTICE.md).
