@@ -82,10 +82,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def check_jwt_secret_security(self) -> "Settings":
-        if self.ENV not in ("development", "test") and self.JWT_SECRET_KEY == "CHANGE_ME_IN_PRODUCTION":
+        if self.JWT_SECRET_KEY == "CHANGE_ME_IN_PRODUCTION":
             raise ValueError(
-                "Security violation: JWT_SECRET_KEY is set to 'CHANGE_ME_IN_PRODUCTION' in production. "
-                "You must configure a cryptographically secure random 64-character secret before starting the server."
+                "Security violation: JWT_SECRET_KEY is still set to 'CHANGE_ME_IN_PRODUCTION'. "
+                "You must configure a cryptographically secure random secret before starting the server."
             )
         return self
 

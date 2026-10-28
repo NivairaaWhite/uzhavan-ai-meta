@@ -171,6 +171,16 @@ pytest tests/ -v
 ```
 **Result**: `29 passed across auth, logistics, pricing, Meta AI and post-harvest`
 
+
+### 4. Running & Testing the Mobile App (Flutter)
+Mobile app testers must use their development machine's local IPv4 address instead of `localhost` so the physical device or emulator can communicate with the backend:
+```bash
+cd mobile
+
+# Pass your local machine's IPv4 address (e.g. http://192.168.1.50:8000)
+flutter run --dart-define=API_BASE_URL=http://<IPV4_ADDRESS>:8000
+```
+*(On the standard Android emulator, `http://10.0.2.2:8000` can also be used to alias the host machine's localhost.)*
 ---
 
 ## 3-Minute Workflow Video Storyboard

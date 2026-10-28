@@ -4,7 +4,14 @@ REM One-click launcher for Uzhavan.AI (Windows). Builds and starts the
 REM full backend stack (Postgres+PostGIS, Redis, API, Celery) via Docker
 REM Compose, then opens the interactive API docs in your browser.
 
-cd /d "%~dp0backend"
+set "SCRIPT_DIR=%~dp0"
+if exist "%SCRIPT_DIR%backend\docker-compose.yml" (
+    set "BACKEND_DIR=%SCRIPT_DIR%backend"
+) else (
+    set "BACKEND_DIR=%SCRIPT_DIR%"
+)
+
+cd /d "%BACKEND_DIR%"
 
 where docker >nul 2>&1
 if errorlevel 1 (
@@ -28,11 +35,11 @@ if errorlevel 1 (
         pause
         exit /b 1
     )
-    set ENGINE_READY=0
+    set "ENGINE_READY=0"
     for /l %%i in (1,1,60) do (
         docker info >nul 2>&1
         if not errorlevel 1 (
-            set ENGINE_READY=1
+            set "ENGINE_READY=1"
             goto :engineready
         )
         timeout /t 2 /nobreak >nul
@@ -59,16 +66,16 @@ if errorlevel 1 (
         pause
         exit /b 1
     ) else (
-        set COMPOSE=docker-compose
+        set "COMPOSE=docker-compose"
     )
 ) else (
-    set COMPOSE=docker compose
+    set "COMPOSE=docker compose"
 )
 
-if not exist ".env" (
+if not exist "%BACKEND_DIR%\.env" (
     echo First run: creating backend\.env from .env.example.
     echo ^(Edit it later to add real Bhashini/Razorpay/DigiLocker API keys.^)
-    copy ".env.example" ".env" >nul
+    copy "%BACKEND_DIR%\.env.example" "%BACKEND_DIR%\.env" >nul
 )
 
 echo.
@@ -76,7 +83,7 @@ echo Starting Uzhavan.AI (Postgres, Redis, API, Celery)...
 echo First build can take a few minutes while Docker downloads images and
 echo installs Python packages.
 echo.
-!COMPOSE! up -d --build
+%COMPOSE% up -d --build
 if errorlevel 1 (
     echo.
     echo Something went wrong starting the stack. See the output above.
@@ -89,7 +96,7 @@ echo Waiting for Postgres, Redis, the API, and the Celery worker to report
 echo healthy ^(celery_beat has no meaningful health check of its own — see
 echo the comment in docker-compose.yml — so it isn't part of this wait^).
 echo.
-!COMPOSE! up -d --wait --wait-timeout 180 db redis api celery_worker
+%COMPOSE% up -d --wait --wait-timeout 180 db redis api celery_worker
 if errorlevel 1 (
     echo.
     echo ==========================================================
@@ -97,20 +104,20 @@ if errorlevel 1 (
     echo ==========================================================
     echo.
     echo --- api logs (last 50 lines) ---
-    !COMPOSE! logs --tail=50 api
+    %COMPOSE% logs --tail=50 api
     echo.
     echo --- celery_worker logs (last 50 lines) ---
-    !COMPOSE! logs --tail=50 celery_worker
+    %COMPOSE% logs --tail=50 celery_worker
     echo.
     echo --- celery_beat logs (last 30 lines) ---
-    !COMPOSE! logs --tail=30 celery_beat
+    %COMPOSE% logs --tail=30 celery_beat
     echo.
     echo --- db logs (last 30 lines) ---
-    !COMPOSE! logs --tail=30 db
+    %COMPOSE% logs --tail=30 db
     echo.
     echo ==========================================================
     echo For the full picture, run from the backend folder:
-    echo     !COMPOSE! logs -f
+    echo     %COMPOSE% logs -f
     echo ==========================================================
     pause
     exit /b 1
@@ -119,7 +126,7 @@ if errorlevel 1 (
 echo.
 echo Uzhavan.AI is running.
 echo API docs: http://localhost:8000/docs
-start "" http://localhost:8000/docs
+start "" "http://localhost:8000/docs"
 
 echo.
 echo To stop everything later, run stop.bat in this folder.

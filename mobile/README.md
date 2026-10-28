@@ -13,7 +13,8 @@ coverage, brace balance) but **not run through `flutter analyze` or
 ```bash
 flutter pub get
 flutter analyze
-flutter run --dart-define=API_BASE_URL=http://localhost:8000
+# Use your host machine IPv4 address instead of localhost for device/emulator access
+flutter run --dart-define=API_BASE_URL=http://<IPV4_ADDRESS>:8000
 ```
 
 Fix anything the analyzer flags before shipping — treat this as a strong
