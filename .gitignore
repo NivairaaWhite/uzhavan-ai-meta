@@ -71,3 +71,8 @@ ios/Flutter/flutter_assets/
 *.mp3
 tools/recordings/*.mp4
 !tools/recordings/README.md
+
+mobile/android/local.properties
+mobile/.flutter-plugins*
+**/GeneratedPluginRegistrant.*
+**/ios/Flutter/

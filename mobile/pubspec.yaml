@@ -41,7 +41,7 @@ dependencies:
   # i18n (Tamil-first UI)
   flutter_localizations:
     sdk: flutter
-  intl: ^0.19.0
+  intl: ">=0.19.0 <1.0.0"
 
 dev_dependencies:
   flutter_test:
