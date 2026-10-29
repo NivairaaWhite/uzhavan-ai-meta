@@ -139,7 +139,9 @@ start.bat
 
 The launcher starts PostgreSQL (with PostGIS), Redis, FastAPI backend, Celery worker, and Celery beat scheduler. Once booted:
 - **Swagger UI**: `http://localhost:8000/docs`
+  - **Fallback Swagger UI (if localhost fails on your device)**: http://127.0.0.1:8000/docs
 - **Health Check**: `http://localhost:8000/health`
+  - **Fallback Health Check**: http://127.0.0.1:8000/health
 
 *Note: Meta AI models switch on automatically once `MODEL_API_KEY` is added to `backend/.env`.*
 
@@ -161,7 +163,7 @@ cp .env.example .env
 pytest tests/ -v
 
 # Start the development server
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### 3. Running the Test Suite

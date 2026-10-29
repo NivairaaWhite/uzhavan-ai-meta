@@ -69,8 +69,6 @@ ios/Flutter/flutter_assets/
 *.webm
 *.wav
 *.mp3
-tools/recordings/*.mp4
-!tools/recordings/README.md
 
 mobile/android/local.properties
 mobile/.flutter-plugins*
