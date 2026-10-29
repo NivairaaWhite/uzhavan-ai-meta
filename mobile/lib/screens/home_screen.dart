@@ -5,6 +5,7 @@ import 'scan_screen.dart';
 import 'marketplace_screen.dart';
 import 'sync_screen.dart';
 import 'post_harvest_screen.dart';
+import '../app_localizations.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -15,7 +16,7 @@ class HomeScreen extends StatelessWidget {
     final unsynced = localDb.unsyncedCount;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Uzhavan.AI')),
+      appBar: AppBar(title: Text(AppLocalizations.of(context)?.translate('app_name') ?? 'Uzhavan.AI')),
       body: GridView.count(
         padding: const EdgeInsets.all(16),
         crossAxisCount: 2,
@@ -24,28 +25,28 @@ class HomeScreen extends StatelessWidget {
         children: [
           _HomeTile(
             icon: Icons.camera_alt,
-            label: 'Scan Crop',
+            label: AppLocalizations.of(context)?.translate('scan_crop') ?? 'Scan Crop',
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScanScreen())),
           ),
           _HomeTile(
             icon: Icons.storefront,
-            label: 'Marketplace',
+            label: AppLocalizations.of(context)?.translate('marketplace') ?? 'Marketplace',
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MarketplaceScreen())),
           ),
           _HomeTile(
             icon: Icons.sync,
-            label: unsynced > 0 ? 'Sync ($unsynced pending)' : 'Sync (up to date)',
+            label: unsynced > 0 ? '${AppLocalizations.of(context)?.translate('sync') ?? 'Sync'} ($unsynced pending)' : '${AppLocalizations.of(context)?.translate('sync') ?? 'Sync'} (up to date)',
             badge: unsynced > 0,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SyncScreen())),
           ),
           _HomeTile(
             icon: Icons.local_shipping,
-            label: 'Logistics Pools',
+            label: AppLocalizations.of(context)?.translate('logistics_pools') ?? 'Logistics Pools',
             onTap: () {},
           ),
           _HomeTile(
             icon: Icons.query_stats,
-            label: 'Post-Harvest Advisor',
+            label: AppLocalizations.of(context)?.translate('post_harvest_advisor') ?? 'Post-Harvest Advisor',
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PostHarvestScreen())),
           ),
         ],

@@ -18,6 +18,7 @@ class _SyncScreenState extends State<SyncScreen> {
   String? _message;
 
   Future<void> _sync() async {
+    final api = context.read<ApiService>();
     setState(() { _syncing = true; _message = null; });
     try {
       final connectivity = await Connectivity().checkConnectivity();
@@ -25,7 +26,6 @@ class _SyncScreenState extends State<SyncScreen> {
         setState(() => _message = 'No network connection. Try again when you have signal.');
         return;
       }
-      final api = context.read<ApiService>();
       final syncedPairs = await api.syncQueuedListings();
 
       String msg = 'Synced ${syncedPairs.length} listing(s) successfully.';

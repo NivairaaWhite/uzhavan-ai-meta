@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/crop_listing.dart';
+import '../app_localizations.dart';
 
 class ResultsScreen extends StatelessWidget {
   final CropListing listing;
@@ -14,7 +15,7 @@ class ResultsScreen extends StatelessWidget {
     }
   }
 
-  Widget _auditBadge() {
+  Widget _auditBadge(BuildContext context) {
     if (listing.auditStatus == null || listing.auditStatus == 'none') {
       return const SizedBox.shrink();
     }
@@ -24,17 +25,17 @@ class ResultsScreen extends StatelessWidget {
     switch (listing.auditStatus) {
       case 'agree':
         color = Colors.green;
-        label = 'Verified by Meta AI';
+        label = AppLocalizations.of(context)?.translate('verified_by_meta_ai') ?? 'Verified by Meta AI';
         icon = Icons.verified;
         break;
       case 'disagree':
         color = Colors.amber.shade900;
-        label = 'AI Audit Flagged — Please Re-scan';
+        label = AppLocalizations.of(context)?.translate('audit_disagree') ?? 'AI Audit Flagged — Please Re-scan';
         icon = Icons.warning_amber_rounded;
         break;
       case 'pending':
         color = Colors.blue;
-        label = 'AI Audit Pending';
+        label = AppLocalizations.of(context)?.translate('audit_pending') ?? 'AI Audit Pending';
         icon = Icons.hourglass_top;
         break;
       default:
@@ -46,7 +47,7 @@ class ResultsScreen extends StatelessWidget {
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color, width: 1.5),
       ),
@@ -83,7 +84,7 @@ class ResultsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Center(child: Text('On-device Confidence: $confidencePct%', style: const TextStyle(fontSize: 16))),
-            Center(child: _auditBadge()),
+            Center(child: _auditBadge(context)),
             const SizedBox(height: 24),
             _InfoRow(label: 'Crop', value: listing.cropType),
             _InfoRow(label: 'Quantity', value: '${listing.quantityKg} kg'),

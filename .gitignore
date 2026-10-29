@@ -76,3 +76,5 @@ mobile/android/local.properties
 mobile/.flutter-plugins*
 **/GeneratedPluginRegistrant.*
 **/ios/Flutter/
+
+*.pt

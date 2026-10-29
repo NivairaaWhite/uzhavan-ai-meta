@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import '../models/post_harvest_recommendation.dart';
 import '../services/api_service.dart';
+import '../app_localizations.dart';
 
 const _supportedDistricts = [
   'Coimbatore', 'Madurai', 'Salem', 'Erode', 'Tiruchirappalli',
@@ -32,6 +33,8 @@ class _PostHarvestScreenState extends State<PostHarvestScreen> {
       setState(() => _error = 'Enter a valid quantity in kg');
       return;
     }
+    
+    final apiService = context.read<ApiService>();
 
     setState(() {
       _loading = true;
@@ -48,7 +51,7 @@ class _PostHarvestScreenState extends State<PostHarvestScreen> {
         position = await Geolocator.getLastKnownPosition();
       }
 
-      final json = await context.read<ApiService>().fetchPostHarvestRecommendation(
+      final json = await apiService.fetchPostHarvestRecommendation(
             cropType: _cropType,
             quantityKg: quantity,
             district: _district,
@@ -79,6 +82,7 @@ class _PostHarvestScreenState extends State<PostHarvestScreen> {
   }
 
   Future<void> _handleVoiceInput() async {
+    final apiService = context.read<ApiService>();
     final transcript = await showDialog<String>(
       context: context,
       builder: (ctx) {
@@ -105,7 +109,7 @@ class _PostHarvestScreenState extends State<PostHarvestScreen> {
 
     if (transcript != null && transcript.trim().isNotEmpty) {
       try {
-        final intent = await context.read<ApiService>().parseVoiceIntent(transcript);
+        final intent = await apiService.parseVoiceIntent(transcript);
         setState(() {
           if (intent['crop_type'] != null) _cropType = intent['crop_type'];
           if (intent['quantity_kg'] != null) _quantityCtrl.text = intent['quantity_kg'].toString();
@@ -136,7 +140,7 @@ class _PostHarvestScreenState extends State<PostHarvestScreen> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _cropType,
+                  initialValue: _cropType,
                   decoration: const InputDecoration(labelText: 'Crop type'),
                   items: const [
                     DropdownMenuItem(value: 'tomato', child: Text('Tomato (தக்காளி)')),
@@ -153,7 +157,7 @@ class _PostHarvestScreenState extends State<PostHarvestScreen> {
               IconButton.filledTonal(
                 icon: const Icon(Icons.mic),
                 onPressed: _handleVoiceInput,
-                tooltip: 'Speak in Tamil',
+                tooltip: AppLocalizations.of(context)?.translate('voice_mic_tooltip') ?? 'Speak in Tamil',
               ),
             ],
           ),
@@ -165,7 +169,7 @@ class _PostHarvestScreenState extends State<PostHarvestScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: _district,
+            initialValue: _district,
             decoration: const InputDecoration(labelText: 'District'),
             items: _supportedDistricts
                 .map((d) => DropdownMenuItem(value: d, child: Text(d)))
@@ -204,7 +208,7 @@ class _PostHarvestScreenState extends State<PostHarvestScreen> {
                         Icon(Icons.auto_awesome, color: Colors.green.shade800, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          'AI Tamil Explanation',
+                          AppLocalizations.of(context)?.translate('explain_tamil') ?? 'AI Tamil Explanation',
                           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade900),
                         ),
                       ],

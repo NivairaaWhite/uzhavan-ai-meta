@@ -8,6 +8,7 @@ import '../services/tflite_service.dart';
 import '../services/local_db_service.dart';
 import '../models/crop_listing.dart';
 import 'results_screen.dart';
+import '../app_localizations.dart';
 
 /// The core offline flow: point camera at produce -> on-device TFLite
 /// grades it -> result is written to Hive immediately, before any network
@@ -40,6 +41,7 @@ class _ScanScreenState extends State<ScanScreen> {
 
   Future<void> _captureAndGrade() async {
     final tflite = context.read<TfliteService>();
+    final localDb = context.read<LocalDbService>();
     if (!tflite.isLoaded) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Grading model not loaded yet — see ai_model/README.md')),
@@ -69,7 +71,9 @@ class _ScanScreenState extends State<ScanScreen> {
       try {
         position = await Geolocator.getCurrentPosition();
       } catch (_) {
-        position = await Geolocator.getLastKnownPosition();
+        try {
+          position = await Geolocator.getLastKnownPosition();
+        } catch (_) {}
       }
 
       final listing = CropListing(
@@ -84,13 +88,22 @@ class _ScanScreenState extends State<ScanScreen> {
         createdAt: DateTime.now(),
       );
 
-      await context.read<LocalDbService>().saveListing(listing);
+      await localDb.saveListing(listing);
 
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => ResultsScreen(listing: listing)),
       );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Grading error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -105,7 +118,7 @@ class _ScanScreenState extends State<ScanScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan Crop')),
+      appBar: AppBar(title: Text(AppLocalizations.of(context)?.translate('scan_crop') ?? 'Scan Crop')),
       body: Column(
         children: [
           Expanded(

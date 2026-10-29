@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
+import '../app_localizations.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -41,7 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('உழவன்.AI', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+              Text(AppLocalizations.of(context)?.translate('app_name') ?? 'Uzhavan.AI', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               const Text('Uzhavan.AI', style: TextStyle(fontSize: 16, color: Colors.grey)),
               const SizedBox(height: 32),

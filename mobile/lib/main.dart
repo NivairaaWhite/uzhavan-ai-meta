@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'app_localizations.dart';
 import 'services/local_db_service.dart';
 import 'services/api_service.dart';
 import 'services/tflite_service.dart';
@@ -40,6 +42,16 @@ class UzhavanApp extends StatelessWidget {
           colorSchemeSeed: const Color(0xFF2E7D32), // deep green — farm/growth
           useMaterial3: true,
         ),
+        supportedLocales: const [
+          Locale('ta', ''),
+          Locale('en', ''),
+        ],
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         home: const _AuthGate(),
       ),
     );
